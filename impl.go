@@ -7,25 +7,25 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-type MinHeap[K constraints.Ordered, V any] []*list.Element
+type MinHeap[K constraints.Ordered] []K
 
-func (h MinHeap[K, V]) Len() int {
+func (h MinHeap[K]) Len() int {
 	return len(h)
 }
-func (h MinHeap[K, V]) Less(i, j int) bool {
-	return h[i].Value.(Element[K, V]).key < h[j].Value.(Element[K, V]).key
+func (h MinHeap[K]) Less(i, j int) bool {
+	return h[i] < h[j]
 }
-func (h MinHeap[K, V]) Swap(i, j int) {
+func (h MinHeap[K]) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h *MinHeap[K, V]) Push(x interface{}) {
+func (h *MinHeap[K]) Push(x interface{}) {
 	// Push and Pop use pointer receivers because they modify the slice's length,
 	// not just its contents.
-	*h = append(*h, x.(*list.Element))
+	*h = append(*h, x.(K))
 }
 
-func (h *MinHeap[K, V]) Pop() interface{} {
+func (h *MinHeap[K]) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -36,7 +36,7 @@ func (h *MinHeap[K, V]) Pop() interface{} {
 type CollectionImpl[K constraints.Ordered, V any] struct {
 	l *list.List
 	m map[K]*list.Element
-	h *MinHeap[K, V]
+	h *MinHeap[K]
 }
 
 type Element[K constraints.Ordered, V any] struct {
@@ -77,7 +77,7 @@ func (c *CollectionImpl[K, V]) Add(key K, value V) error {
 		return ErrDuplicateKey
 	}
 	elem := c.l.PushBack(Element[K, V]{key, value})
-	heap.Push(c.h, elem)
+	heap.Push(c.h, key)
 	c.m[key] = elem
 	return nil
 }
@@ -90,9 +90,10 @@ func (c *CollectionImpl[K, V]) DelMin() (K, V, error) {
 		return *new(K), *new(V), ErrEmptyCollection
 	}
 
-	elem := heap.Pop(c.h).(*list.Element)
+	key := heap.Pop(c.h).(K)
+	elem := c.m[key]
 	kv := c.l.Remove(elem).(Element[K, V])
-	delete(c.m, kv.key)
+	delete(c.m, key)
 	return kv.key, kv.value, nil
 }
 
@@ -129,7 +130,7 @@ func (c *CollectionImpl[K, V]) At(key K) (V, bool) {
 }
 
 func NewCollection[K constraints.Ordered, V any]() Collection[K, V] {
-	h := make(MinHeap[K, V], 0)
+	h := make(MinHeap[K], 0)
 	heap.Init(&h)
 
 	return &CollectionImpl[K, V]{
